@@ -1,6 +1,5 @@
 package team.singularity.wwscoutingapp.singularitynet;
 
-import android.Manifest;
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothClass;
@@ -17,11 +16,13 @@ import android.util.Log;
 import android.widget.Toast;
 
 import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
 import java.io.IOException;
 import java.net.Socket;
 import java.util.Set;
 import java.util.UUID;
+import java.util.jar.Manifest;
 
 public class Bluetooth {
 
@@ -30,6 +31,7 @@ public class Bluetooth {
     public final int DEVICE_HARDWARE_ADDRESS = 1;
     final String NAME = "SingularityNet";
     final java.util.UUID UUID = java.util.UUID.fromString("90172b5b-9137-463e-9e4e-8c2f2735cdd1"); //must be same for devices that wish to connect
+    final String TAG = "Bluetooth";
 
     Activity activity;
     Set<BluetoothDevice> pairedDevices;
@@ -50,6 +52,7 @@ public class Bluetooth {
             Toast.makeText(this.activity, "Bluetooth not supported", Toast.LENGTH_SHORT).show();
             this.activity.finish();
         }
+        int permissionCheck = ContextCompat.checkSelfPermission(activity, android.Manifest.permission.BLUETOOTH);
         bluetoothManager = (BluetoothManager) this.activity.getSystemService(Context.BLUETOOTH_SERVICE);
         bluetoothAdapter = bluetoothManager.getAdapter();
         if (bluetoothAdapter == null) {
@@ -60,6 +63,18 @@ public class Bluetooth {
             Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
             this.activity.startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
         }
+        AcceptThread acceptThread = new AcceptThread();
+        acceptThread.start();
+    }
+
+    public void connectToDevice(BluetoothDevice device) {
+        ConnectThread connectThread = new ConnectThread(device);
+        connectThread.start();
+    }
+
+    public void connectToDevice(int index) {
+        BluetoothDevice device = getPairedDevice(index);
+        connectToDevice(device);
     }
 
 
@@ -74,6 +89,10 @@ public class Bluetooth {
             }
         }
         return devices;
+    }
+    public BluetoothDevice getPairedDevice(int index) {
+        pairedDevices = bluetoothAdapter.getBondedDevices();
+        return (BluetoothDevice) pairedDevices.toArray()[index];
     }
     public String[] getPairedDeviceNames() {
         String[][] devices = getPairedDevices();
@@ -93,7 +112,8 @@ public class Bluetooth {
     }
 
     public void manageMyConnectedSocket(BluetoothSocket socket) {
-        Toast.makeText(activity, "Bluetooth not supported", Toast.LENGTH_SHORT).show();
+        Log.i(TAG, "got a connection");
+        Toast.makeText(activity, "got a message", Toast.LENGTH_SHORT).show();
     }
 
     public BluetoothDevice getPairedDevice(String hardwareAddress) {
@@ -104,10 +124,6 @@ public class Bluetooth {
             }
         }
         return null;
-    }
-
-    public void connectToDevice(BluetoothDevice device) {
-
     }
 
     private class ConnectThread extends Thread {
@@ -185,13 +201,14 @@ public class Bluetooth {
             BluetoothSocket socket = null;
             // Keep listening until exception occurs or a socket is returned.
             while (true) {
+                Log.i(TAG, "Listening for client");
                 try {
                     socket = mmServerSocket.accept();
                 } catch (IOException e) {
                     Log.e(TAG, "Socket's accept() method failed", e);
                     break;
                 }
-
+                Log.i(TAG, "Tried to get a connection");
                 if (socket != null) {
                     // A connection was accepted. Perform work associated with
                     // the connection in a separate thread.
